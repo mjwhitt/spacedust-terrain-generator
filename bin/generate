@@ -1,0 +1,27 @@
+#!/usr/bin/env ruby
+ENV['BUNDLE_GEMFILE'] = File.expand_path(File.join(File.dirname(__FILE__), '..', 'Gemfile'))
+
+require 'rubygems'
+require 'bundler/setup'
+require 'trollop'
+require_relative '../lib/terrain'
+
+options = Trollop::options do
+  banner "Usage: generate [options]"
+  banner ""
+  opt :seed, "Random seed (default: random)", :type => :int
+  opt :size, "Terrain size (0-9) (default: random)", :type => :int
+  opt :type, "Terrain type (#{Terrain::TYPES.join(', ')}) (default: random)", :type => :string
+  banner ""
+  opt :verbose, "Print debug messages to stderr.", :type => :boolean, :default => false
+  banner ""
+end
+
+options[:type] = options[:type].to_sym if options[:type]
+
+Trollop::die :size, "must be 0-#{Terrain::SIZES.size - 1}" unless (0...Terrain::SIZES.size).cover?(options[:size]) || options[:size].nil?
+Trollop::die :type, "must be #{Terrain::TYPES.join(", ")}" unless Terrain::TYPES.member?(options[:type]) || options[:type].nil?
+
+terrain = Terrain.new(options)
+terrain.generate
+terrain.output
