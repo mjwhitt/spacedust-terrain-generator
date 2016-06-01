@@ -11,7 +11,7 @@ options = Trollop::options do
   banner ""
   opt :seed, "Random seed (default: random)", :type => :int
   opt :size, "Terrain size (0-9) (default: random)", :type => :int
-  opt :type, "Terrain type (#{Terrain::TYPES.join(', ')}) (default: random)", :type => :string
+  opt :type, "Terrain type (#{Terrain::TYPES.join(', ')}, all) (default: random)", :type => :string
   banner ""
   opt :verbose, "Print debug messages to stderr.", :type => :boolean, :default => false
   banner ""
@@ -20,8 +20,18 @@ end
 options[:type] = options[:type].to_sym if options[:type]
 
 Trollop::die :size, "must be 0-#{Terrain::SIZES.size - 1}" unless (0...Terrain::SIZES.size).cover?(options[:size]) || options[:size].nil?
-Trollop::die :type, "must be #{Terrain::TYPES.join(", ")}" unless Terrain::TYPES.member?(options[:type]) || options[:type].nil?
+Trollop::die :type, "must be #{Terrain::TYPES.join(", ")}" unless Terrain::TYPES.member?(options[:type]) || options[:type].nil? || options[:type] == :all
 
-terrain = Terrain.new(options)
-terrain.generate
-terrain.output
+if options[:type] == :all
+  Terrain::TYPES.each do |type|
+    options[:type] = type
+    terrain = Terrain.new(options)
+    terrain.generate
+    terrain.output
+  end
+else
+  terrain = Terrain.new(options)
+  terrain.generate
+  terrain.output
+end
+
