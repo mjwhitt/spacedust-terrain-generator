@@ -6,7 +6,7 @@ require 'fractal_noise'
 
 class Terrain
 
-  TYPES   = [ :desert, :forest, :grassland, :jungle, :rainforest, :savanna, :swamp, :taiga, :tundra,]
+  TYPES   = [ :desert, :forest, :grassland, :jungle, :rainforest, :savanna, :swamp, :taiga, :tundra ]
   SIZES   = [ 48, 64, 96, 128, 160, 192, 256, 320, 384, 512 ]
   OCTAVES = { 
     48  => [4, 5],
@@ -20,16 +20,28 @@ class Terrain
     384 => [      6, 7, 8],
     512 => [         7, 8, 9, 10],
   }
+  STEPS = { 
+     4 =>  8.0,
+     5 => 10.0,
+     6 => 12.0,
+     7 => 14.0,
+     8 => 16.0,
+     9 => 18.0,
+    10 => 20.0,
+  }
   WATER = {
     :desert     => {:above => 0.90,                                         },
-    :savanna    => {                                :between => [0.30, 0.40]},
-    :jungle     => {                :below => 0.10, :between => [0.45, 0.55]},
-    :swamp      => {:above => 0.80, :below => 0.20, :between => [0.40, 0.60]},
     :grassland  => {:above => 0.65,                                         },
-    :forest     => {                :below => 0.40,                         },
-    :rainforest => {:above => 0.85,                 :between => [0.45, 0.60]},
-    :taiga      => {                                :between => [0.55, 0.65]},
+
     :tundra     => {                :below => 0.10,                         },
+    :forest     => {                :below => 0.35,                         },
+
+    :savanna    => {                                :between => [0.30, 0.40]},
+    :taiga      => {                                :between => [0.60, 0.70]},
+
+    :rainforest => {:above => 0.85,                 :between => [0.45, 0.60]},
+    :jungle     => {                :below => 0.15, :between => [0.40, 0.55]},
+    :swamp      => {:above => 0.80, :below => 0.20, :between => [0.40, 0.60]},
   }
   COLORS = {
     :dirt  => {
@@ -65,7 +77,7 @@ class Terrain
 
   def generate
     @size   = SIZES[@options[:size] || @random.rand(SIZES.size)]
-    @octave = OCTAVES[@size].sample(random: @random)
+    @octave = @options[:octaves] || OCTAVES[@size].sample(random: @random)
     @type   = @options[:type] || TYPES.sample(random: @random)
 
     debug "Generating a #{@size}x#{@size} #{@type} terrain using #{@octave} octaves and #{@seed} seed."
@@ -91,6 +103,7 @@ class Terrain
       @terrain[x][y] = :water if WATER[@type][:above]   && @noise.fractal[x][y] >= WATER[@type][:above]
       @terrain[x][y] = :water if WATER[@type][:below]   && @noise.fractal[x][y] <= WATER[@type][:below]
     end
+
   end
 
   def output
@@ -99,92 +112,92 @@ class Terrain
       value   = @noise.fractal[x][y]
       terrain = @terrain[x][y]
       water   = WATER[@type]
+      tsteps  = STEPS[@octave]
+      step    = 0
 
       # water
       if terrain == :water
         if water[:below] && value <= water[:below]
-          light -= (water[:below] - value)/8.0
+          steps = (water[:below] * tsteps).round.to_f
+          step  = steps - (steps * (value / water[:below]))
+
         elsif water[:above] && value >= water[:above]
-          light -= (value - water[:above])/8.0
+          steps = ((1.0 - water[:above]) * tsteps).round.to_f
+          step  = (steps * ((value - water[:above]) / (1.0 - water[:above])))
+
         else
-          mid = water[:between].first + (water[:between].last - water[:between].first)/2.0
+          mid   = water[:between].first + (water[:between].last - water[:between].first)/2.0
+          steps = ((water[:between].last - water[:between].first) * tsteps).round.to_f
 
           if value < mid
-            light -= (value - water[:between].first)/8.0
+            step = (steps * ((value - water[:between].first) / (mid - water[:between].first)))
           else
-            light -= (water[:between].last - value)/8.0
+            step = (steps * ((water[:between].last - value) / (water[:between].last - mid)))
           end
         end
+          
+        light -= (@options[:continuous_color] ? step : step.to_i)*0.01
 
       # dirt
       else
-        if water[:between]
-          
-          # lower
-          if value < water[:between].first
 
-            # use mid
+        if water[:between]
+           
+          #lower
+          if value < water[:between].first
             if water[:below]
-              low  = water[:below]
-              high = water[:between].first 
-              mid  = low + (high - low)/2.0
+              mid   = water[:below] + (water[:between].first - water[:below])/2.0
+              steps = ((water[:between].first - water[:below]) * tsteps).round.to_f
 
               if value < mid
-                light += (value - low)/5.0
+                step = (steps * ((value - water[:below]) / (mid - water[:below])))
               else
-                light += (high - value)/5.0
+                step = (steps * ((water[:between].first - value) / (water[:between].first - mid)))
               end
-
-            # no mid
             else
-              light += (water[:between].first - value)/5.0
+              steps = (water[:between].first * tsteps).round.to_f
+              step  = steps - (steps * (value / water[:between].first))
             end
-          
+
           # upper
           else
-            
-            # use mid
             if water[:above]
-              low  = water[:between].last
-              high = water[:above] || 1.0
-              mid  = low + (high - low)/2.0
+              mid   = water[:between].last + (water[:above] - water[:between].last)/2.0
+              steps = ((water[:above] - water[:between].last) * tsteps).round.to_f
 
               if value < mid
-                light += (value - low)/5.0
+                step = (steps * ((value - water[:between].last)/(mid - water[:between].last)))
               else
-                light += (high - value)/5.0
+                step = (steps * ((water[:above] - value) / (water[:above] - mid)))
               end
-
-            # no mid
             else
-              light += (value - water[:between].last)/5.0
+              steps = ((1.0 - water[:between].last) * tsteps).round.to_f
+              step  = (steps * ((value - water[:between].last)/(1.0 - water[:between].last)))
             end
           end
+
+        # no between
         else
-          
-          # use mid point
           if water[:below] && water[:above]
-            low  = water[:below] || 0.0
-            high = water[:above] || 1.0
-            mid  = low + (high - low)/2.0
+            mid   = water[:below] + (water[:above] - water[:below])/2.0
+            steps = ((water[:above] - water[:below]) * tsteps).round.to_f
 
             if value < mid
-              light += (value - low)/5.0
+              step = (steps * ((value - water[:below]) / (mid - water[:below])))
             else
-              light += (high - value)/5.0
+              step = (steps * ((water[:above] - value) / (water[:above] - mid)))
             end
-
-          # low to high
           elsif water[:below]
-            light += (value - water[:below])/5.0
-
-          # high to low
-          else
-            light += (water[:above] - value)/5.0
-
+            steps = ((1.0 - water[:below]) * tsteps).round.to_f
+            step  = (steps * ((value - water[:below]) / (1.0 - water[:below])))
+          else # above
+            steps = (water[:above] * tsteps).round.to_f
+            step  = steps - (steps * (value / water[:above]))
           end
         end
-      end 
+
+        light += (@options[:continuous_color] ? step : step.to_i)*0.01
+      end
 
       ChunkyPNG::Color.from_hsl(hue, sat, light)
     end

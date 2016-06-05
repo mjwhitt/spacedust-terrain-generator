@@ -12,6 +12,8 @@ options = Trollop::options do
   opt :seed, "Random seed (default: random)", :type => :int
   opt :size, "Terrain size (0-9) (default: random)", :type => :int
   opt :type, "Terrain type (#{Terrain::TYPES.join(', ')}, all) (default: random)", :type => :string
+  opt :octaves, "Number of octaves to combine (default: random)", :type => :int
+  opt :continuous_color, "Use continuous color instead of discrete steps", :type => :boolean
   banner ""
   opt :verbose, "Print debug messages to stderr.", :type => :boolean, :default => false
   banner ""
