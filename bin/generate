@@ -14,6 +14,7 @@ options = Trollop::options do
   opt :type, "Terrain type (#{Terrain::TYPES.join(', ')}, all) (default: random)", :type => :string
   opt :octaves, "Number of octaves to combine (default: random)", :type => :int
   opt :continuous_color, "Use continuous color instead of discrete steps", :type => :boolean
+  opt :grayscale, "Grayscale instead of color", :type => :boolean
   banner ""
   opt :verbose, "Print debug messages to stderr.", :type => :boolean, :default => false
   banner ""
@@ -29,11 +30,11 @@ if options[:type] == :all
     options[:type] = type
     terrain = Terrain.new(options)
     terrain.generate
-    terrain.output
+    options[:grayscale] ? terrain.output_grayscale : terrain.output
   end
 else
   terrain = Terrain.new(options)
   terrain.generate
-  terrain.output
+  options[:grayscale] ? terrain.output_grayscale : terrain.output
 end
 

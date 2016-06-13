@@ -22,12 +22,12 @@ class Terrain
   }
   STEPS = { 
      4 =>  5.0,
-     5 =>  6.0,
-     6 =>  7.0,
-     7 =>  8.0,
-     8 =>  9.0,
-     9 => 14.0,
-    10 => 20.0,
+     5 =>  5.0,
+     6 =>  9.0,
+     7 =>  9.0,
+     8 => 15.0,
+     9 => 15.0,
+    10 => 15.0,
   }
   WATER = {
     :desert     => {:above => 0.90,                                         },
@@ -96,114 +96,111 @@ class Terrain
     @noise.median_filter(2)
     @noise.normalize
 
-    @terrain = @noise.array { :dirt }
+    water = WATER[@type]
+    @noise.xy do |x,y|
+      value = @noise.fractal[x][y]
 
-    @noise.xy do |x, y|
-      @terrain[x][y] = :water if WATER[@type][:between] && @noise.fractal[x][y] >= WATER[@type][:between].first && @noise.fractal[x][y] <= WATER[@type][:between].last
-      @terrain[x][y] = :water if WATER[@type][:above]   && @noise.fractal[x][y] >= WATER[@type][:above]
-      @terrain[x][y] = :water if WATER[@type][:below]   && @noise.fractal[x][y] <= WATER[@type][:below]
+      if water[:above] && water[:below] && water[:between]
+        mid1 = water[:below] + (water[:between].first - water[:below])/2.0
+        mid2 = water[:between].first + (water[:between].last - water[:between].first)/2.0
+        mid3 = water[:between].last + (water[:above] - water[:between].last)/2.0
+        dist(x, y, value, 0.0, water[:below], wp(water[:below]), 0.5)
+        dist(x, y, value, water[:below], mid1, 0.5, dp(water[:between].first - water[:below]))
+        dist(x, y, value, mid1, water[:between].first, dp(water[:between].first - water[:below]), 0.5)
+        dist(x, y, value, water[:between].first, mid2, 0.5, wp(water[:between].last - water[:between].first))
+        dist(x, y, value, mid2, water[:between].last, wp(water[:between].last - water[:between].first), 0.5)
+        dist(x, y, value, water[:between].last, mid3, 0.5, dp(water[:above] - water[:between].last))
+        dist(x, y, value, mid3, water[:above], dp(water[:above] - water[:between].last), 0.5)
+        dist(x, y, value, water[:above], 1.0, 0.5, wp(1.0 - water[:above]))
+      
+      elsif water[:above] && water[:below]
+        mid = water[:below] + (water[:above] - water[:below])/2.0
+
+        dist(x, y, value, 0.0, water[:below], wp(water[:below]), 0.5)
+        dist(x, y, value, water[:below], mid, 0.5, dp(water[:above] - water[:below]))
+        dist(x, y, value, mid, water[:above], dp(water[:above] - water[:below]), 0.5)
+        dist(x, y, value, water[:above], 1.0, 0.5, wp(1.0 - water[:above]))
+
+      elsif water[:above] && water[:between]
+        mid1 = water[:between].first + (water[:between].last - water[:between].first)/2.0
+        mid2 = water[:between].last + (water[:above] - water[:between].last)/2.0
+
+        dist(x, y, value, 0.0, water[:between].first, dp(water[:between].first), 0.5)
+        dist(x, y, value, water[:between].first, mid1, 0.5, wp(water[:between].last - water[:between].first))
+        dist(x, y, value, mid1, water[:between].last, wp(water[:between].last - water[:between].first), 0.5) 
+        dist(x, y, value, water[:between].last, mid2, 0.5, dp(water[:above] - water[:between].last)) 
+        dist(x, y, value, mid2, water[:above], dp(water[:above] - water[:between].last), 0.5)
+        dist(x, y, value, water[:above], 1.0, 0.5, wp(1.0 - water[:above]))
+
+      elsif water[:below] && water[:between]
+        mid1 = water[:below] + (water[:between].first - water[:below])/2.0
+        mid2 = water[:between].first + (water[:between].last - water[:between].first)/2.0
+
+        dist(x, y, value, 0.0, water[:below], wp(water[:below]), 0.5)
+        dist(x, y, value, water[:below], mid1, 0.5, dp(water[:between].first - water[:below]))
+        dist(x, y, value, mid1, water[:between].first, dp(water[:between].first - water[:below]), 0.5)
+        dist(x, y, value, water[:between].first, mid2, 0.5, wp(water[:between].last - water[:between].first))
+        dist(x, y, value, mid2, water[:between].last, wp(water[:between].last - water[:between].first), 0.5) 
+        dist(x, y, value, water[:between].last, 1.0, 0.5, dp(1.0 - water[:between].last))  
+
+      elsif water[:above]
+        dist(x, y, value, 0.0, water[:above], dp(water[:above]), 0.5)
+        dist(x, y, value, water[:above], 1.0, 0.5, wp(1.0 - water[:above]))
+
+      elsif water[:below]
+        dist(x, y, value, 0.0, water[:below], wp(water[:below]), 0.5)
+        dist(x, y, value, water[:below], 1.0, 0.5, dp(1.0 - water[:below]))
+
+      elsif water[:between]
+        mid = water[:between].first + (water[:between].last - water[:between].first)/2.0
+
+        dist(x, y, value, 0.0, water[:between].first, dp(water[:between].first), 0.5)
+        dist(x, y, value, water[:between].first, mid, 0.5, wp(water[:between].last - water[:between].first))
+        dist(x, y, value, mid, water[:between].last, wp(water[:between].last - water[:between].first), 0.5) 
+        dist(x, y, value, water[:between].last, 1.0, 0.5, dp(1.0 - water[:between].last)) 
+      end
     end
-
   end
 
   def output
     @noise.output_xy("#{@output}/#{@type}-#{@seed}-#{@size}.png") do |x,y|
-      hue,sat,light = ChunkyPNG::Color.to_hsl(COLORS[@terrain[x][y]][@type])
       value   = @noise.fractal[x][y]
-      terrain = @terrain[x][y]
+      terrain = value <= 0.5 ? :water : :dirt
+      hue,sat,light = ChunkyPNG::Color.to_hsl(COLORS[terrain][@type])
       water   = WATER[@type]
       tsteps  = STEPS[@octave]
       step    = 0
 
-      # water
-      if terrain == :water
-        if water[:below] && value <= water[:below]
-          steps = (water[:below] * tsteps).round.to_f
-          step  = steps - (steps * (value / water[:below]))
-
-        elsif water[:above] && value >= water[:above]
-          steps = ((1.0 - water[:above]) * tsteps).round.to_f
-          step  = (steps * ((value - water[:above]) / (1.0 - water[:above])))
-
-        else
-          mid   = water[:between].first + (water[:between].last - water[:between].first)/2.0
-          steps = ((water[:between].last - water[:between].first) * tsteps).round.to_f
-
-          if value < mid
-            step = (steps * ((value - water[:between].first) / (mid - water[:between].first)))
-          else
-            step = (steps * ((water[:between].last - value) / (water[:between].last - mid)))
-          end
-        end
-          
-        light -= (@options[:continuous_color] ? step : step.to_i)*0.01
-
-      # dirt
-      else
-
-        if water[:between]
-           
-          #lower
-          if value < water[:between].first
-            if water[:below]
-              mid   = water[:below] + (water[:between].first - water[:below])/2.0
-              steps = ((water[:between].first - water[:below]) * tsteps).round.to_f
-
-              if value < mid
-                step = (steps * ((value - water[:below]) / (mid - water[:below])))
-              else
-                step = (steps * ((water[:between].first - value) / (water[:between].first - mid)))
-              end
-            else
-              steps = (water[:between].first * tsteps).round.to_f
-              step  = steps - (steps * (value / water[:between].first))
-            end
-
-          # upper
-          else
-            if water[:above]
-              mid   = water[:between].last + (water[:above] - water[:between].last)/2.0
-              steps = ((water[:above] - water[:between].last) * tsteps).round.to_f
-
-              if value < mid
-                step = (steps * ((value - water[:between].last)/(mid - water[:between].last)))
-              else
-                step = (steps * ((water[:above] - value) / (water[:above] - mid)))
-              end
-            else
-              steps = ((1.0 - water[:between].last) * tsteps).round.to_f
-              step  = (steps * ((value - water[:between].last)/(1.0 - water[:between].last)))
-            end
-          end
-
-        # no between
-        else
-          if water[:below] && water[:above]
-            mid   = water[:below] + (water[:above] - water[:below])/2.0
-            steps = ((water[:above] - water[:below]) * tsteps).round.to_f
-
-            if value < mid
-              step = (steps * ((value - water[:below]) / (mid - water[:below])))
-            else
-              step = (steps * ((water[:above] - value) / (water[:above] - mid)))
-            end
-          elsif water[:below]
-            steps = ((1.0 - water[:below]) * tsteps).round.to_f
-            step  = (steps * ((value - water[:below]) / (1.0 - water[:below])))
-          else # above
-            steps = (water[:above] * tsteps).round.to_f
-            step  = steps - (steps * (value / water[:above]))
-          end
-        end
-
+      if terrain == :dirt
+        step = ((value - 0.5)/0.5)*tsteps
         light += (@options[:continuous_color] ? step : step.to_i)*0.01
+      elsif terrain == :water
+        step = ((0.5-value)/0.5)*tsteps
+        light -= (@options[:continuous_color] ? step : step.to_i)*0.01
       end
 
       ChunkyPNG::Color.from_hsl(hue, sat, light)
     end
   end
 
+  def output_grayscale
+    @noise.grayscale("#{@output}/#{@type}-#{@seed}-#{@size}-gray.png")
+  end
+
   private
+
+  def dist(x, y, ovalue, omin, omax, nmin, nmax)
+    return unless ovalue >= omin && ovalue <= omax
+    @noise.fractal[x][y] = (((ovalue - omin) * (nmax - nmin)) / (omax - omin)) + nmin
+  end
+
+  def wp(percent)
+    0.5 - percent*0.5
+  end
+
+  def dp(percent)
+    0.5 + percent*0.5
+  end
 
   def debug(msg)
     $stderr.puts msg if @options[:verbose]
