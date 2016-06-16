@@ -43,29 +43,55 @@ class Terrain
     :jungle     => {                :below => 0.15, :between => [0.40, 0.55]},
     :swamp      => {:above => 0.80, :below => 0.20, :between => [0.40, 0.60]},
   }
+  ROCK = {
+    :desert     => {:below => 0.20, :actual => 0.82 },
+    :grassland  => {:below => 0.30, :actual => 0.81 },
+
+    :tundra     => {:above => 0.80, :actual => 0.76 },
+    :forest     => {:above => 0.70, :actual => 0.80 },
+
+    :savanna    => {:above => 0.68, :actual => 0.86 },
+    :taiga      => {:below => 0.40, :actual => 0.78 },
+
+    :jungle     => {:above => 0.65, :actual => 0.86 },
+    :rainforest => {:below => 0.30, :actual => 0.73 },
+
+    :swamp      => {:actual => 2.00 }, # none 
+  }
+
   COLORS = {
     :dirt  => {
       :desert     => ChunkyPNG::Color.from_hex('#9c7e3d'),
-      :forest     => ChunkyPNG::Color.from_hex('#49443e'),
-      :grassland  => ChunkyPNG::Color.from_hex('#5e5a4d'),
-      :jungle     => ChunkyPNG::Color.from_hex('#624f2f'),
-      :rainforest => ChunkyPNG::Color.from_hex('#463d37'),
-      :savanna    => ChunkyPNG::Color.from_hex('#9d8046'),
-      :swamp      => ChunkyPNG::Color.from_hex('#555223'),
+      :forest     => ChunkyPNG::Color.from_hex('#38342e'),
+      :grassland  => ChunkyPNG::Color.from_hex('#545145'),
+      :jungle     => ChunkyPNG::Color.from_hex('#564629'),
+      :rainforest => ChunkyPNG::Color.from_hex('#423934'),
+      :savanna    => ChunkyPNG::Color.from_hex('#8d733f'),
+      :swamp      => ChunkyPNG::Color.from_hex('#48461e'),
       :taiga      => ChunkyPNG::Color.from_hex('#5c4f40'),
-      :tundra     => ChunkyPNG::Color.from_hex('#6e695c'),
+      :tundra     => ChunkyPNG::Color.from_hex('#615d51'),
     },
     :water => {
-      :desert     => ChunkyPNG::Color.from_hex('#606249'),
-      :forest     => ChunkyPNG::Color.from_hex('#284955'),
+      :desert     => ChunkyPNG::Color.from_hex('#6d6f52'),
+      :forest     => ChunkyPNG::Color.from_hex('#213b45'),
       :grassland  => ChunkyPNG::Color.from_hex('#365d65'),
       :jungle     => ChunkyPNG::Color.from_hex('#404c47'),
       :rainforest => ChunkyPNG::Color.from_hex('#1e3f50'),
       :savanna    => ChunkyPNG::Color.from_hex('#596266'),
       :swamp      => ChunkyPNG::Color.from_hex('#2d4636'),
-      :taiga      => ChunkyPNG::Color.from_hex('#4e7280'),
+      :taiga      => ChunkyPNG::Color.from_hex('#44636f'),
       :tundra     => ChunkyPNG::Color.from_hex('#526b72'),
     },
+    :rock => {
+      :desert     => ChunkyPNG::Color.from_hex('#8d7135'),
+      :forest     => ChunkyPNG::Color.from_hex('#2f2e2d'),
+      :grassland  => ChunkyPNG::Color.from_hex('#4b4944'),
+      :jungle     => ChunkyPNG::Color.from_hex('#504430'),
+      :rainforest => ChunkyPNG::Color.from_hex('#363230'),
+      :savanna    => ChunkyPNG::Color.from_hex('#7e6b44'),
+      :taiga      => ChunkyPNG::Color.from_hex('#504d49'),
+      :tundra     => ChunkyPNG::Color.from_hex('#5c5a57'),
+    }
   }
 
   def initialize(options)
@@ -97,6 +123,7 @@ class Terrain
     @noise.normalize
 
     water = WATER[@type]
+    rock  = ROCK[@type]
     @noise.xy do |x,y|
       value = @noise.fractal[x][y]
 
@@ -104,6 +131,7 @@ class Terrain
         mid1 = water[:below] + (water[:between].first - water[:below])/2.0
         mid2 = water[:between].first + (water[:between].last - water[:between].first)/2.0
         mid3 = water[:between].last + (water[:above] - water[:between].last)/2.0
+
         dist(x, y, value, 0.0, water[:below], wp(water[:below]), 0.5)
         dist(x, y, value, water[:below], mid1, 0.5, dp(water[:between].first - water[:below]))
         dist(x, y, value, mid1, water[:between].first, dp(water[:between].first - water[:below]), 0.5)
@@ -125,7 +153,8 @@ class Terrain
         mid1 = water[:between].first + (water[:between].last - water[:between].first)/2.0
         mid2 = water[:between].last + (water[:above] - water[:between].last)/2.0
 
-        dist(x, y, value, 0.0, water[:between].first, dp(water[:between].first), 0.5)
+        dist(x, y, value, 0.0, rock[:below], 1.0, dp(water[:between].first - rock[:below]))
+        dist(x, y, value, rock[:below], water[:between].first, dp(water[:between].first - rock[:below]), 0.5)
         dist(x, y, value, water[:between].first, mid1, 0.5, wp(water[:between].last - water[:between].first))
         dist(x, y, value, mid1, water[:between].last, wp(water[:between].last - water[:between].first), 0.5) 
         dist(x, y, value, water[:between].last, mid2, 0.5, dp(water[:above] - water[:between].last)) 
@@ -141,23 +170,39 @@ class Terrain
         dist(x, y, value, mid1, water[:between].first, dp(water[:between].first - water[:below]), 0.5)
         dist(x, y, value, water[:between].first, mid2, 0.5, wp(water[:between].last - water[:between].first))
         dist(x, y, value, mid2, water[:between].last, wp(water[:between].last - water[:between].first), 0.5) 
-        dist(x, y, value, water[:between].last, 1.0, 0.5, dp(1.0 - water[:between].last))  
+        dist(x, y, value, water[:between].last, rock[:above], 0.5, dp(rock[:above] - water[:between].last))  
+        dist(x, y, value, rock[:above], 1.0, dp(rock[:above] - water[:between].last), 1.0)  
 
       elsif water[:above]
-        dist(x, y, value, 0.0, water[:above], dp(water[:above]), 0.5)
+        dist(x, y, value, 0.0, rock[:below], 1.0, dp(water[:above] - rock[:below]))
+        dist(x, y, value, rock[:below], water[:above], dp(water[:above] - rock[:below]), 0.5)
         dist(x, y, value, water[:above], 1.0, 0.5, wp(1.0 - water[:above]))
 
       elsif water[:below]
         dist(x, y, value, 0.0, water[:below], wp(water[:below]), 0.5)
-        dist(x, y, value, water[:below], 1.0, 0.5, dp(1.0 - water[:below]))
+        dist(x, y, value, water[:below], rock[:above], 0.5, dp(rock[:above] - water[:below]))
+        dist(x, y, value, rock[:above], 1.0, dp(rock[:above] - water[:below]), 1.0)
 
       elsif water[:between]
         mid = water[:between].first + (water[:between].last - water[:between].first)/2.0
 
-        dist(x, y, value, 0.0, water[:between].first, dp(water[:between].first), 0.5)
+        if rock[:below]
+          dist(x, y, value, 0.0, rock[:below], 1.0, dp(water[:between].first - rock[:below]))
+          dist(x, y, value, rock[:below], water[:between].first, dp(water[:between].first - rock[:below]), 0.5)
+        else
+          dist(x, y, value, 0.0, water[:between].first, dp(water[:between].first), 0.5)
+        end
+
         dist(x, y, value, water[:between].first, mid, 0.5, wp(water[:between].last - water[:between].first))
         dist(x, y, value, mid, water[:between].last, wp(water[:between].last - water[:between].first), 0.5) 
-        dist(x, y, value, water[:between].last, 1.0, 0.5, dp(1.0 - water[:between].last)) 
+
+        if rock[:above]
+          dist(x, y, value, water[:between].last, rock[:above], 0.5, dp(rock[:above] - water[:between].last)) 
+          dist(x, y, value, rock[:above], 1.0, dp(rock[:above] - water[:between].last), 1.0) 
+        else
+          dist(x, y, value, water[:between].last, 1.0, 0.5, dp(1.0 - water[:between].last)) 
+        end
+
       end
     end
   end
@@ -165,13 +210,15 @@ class Terrain
   def output
     @noise.output_xy("#{@output}/#{@type}-#{@seed}-#{@size}.png") do |x,y|
       value   = @noise.fractal[x][y]
-      terrain = value <= 0.5 ? :water : :dirt
+      terrain = value <= 0.5 ? :water : value >= ROCK[@type][:actual] ? :rock : :dirt
       hue,sat,light = ChunkyPNG::Color.to_hsl(COLORS[terrain][@type])
       water   = WATER[@type]
       tsteps  = STEPS[@octave]
       step    = 0
 
-      if terrain == :dirt
+      value = 0.999 if value == 1.0
+
+      if terrain == :dirt || terrain == :rock
         step = ((value - 0.5)/0.5)*tsteps
         light += (@options[:continuous_color] ? step : step.to_i)*0.01
       elsif terrain == :water
