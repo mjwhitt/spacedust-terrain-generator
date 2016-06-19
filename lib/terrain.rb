@@ -51,14 +51,27 @@ class Terrain
     :forest     => {:above => 0.70, :actual => 0.80 },
 
     :savanna    => {:above => 0.68, :actual => 0.86 },
-    :taiga      => {:below => 0.40, :actual => 0.78 },
+    :taiga      => {:below => 0.40, :actual => 0.62 },
 
     :jungle     => {:above => 0.65, :actual => 0.86 },
     :rainforest => {:below => 0.30, :actual => 0.73 },
 
-    :swamp      => {:actual => 2.00 }, # none 
+    :swamp      => {:actual => 2.00 }, # none
   }
+  VEG = {
+    :desert     => [0.50, 0.53],
+    :grassland  => [0.51, 0.81],
 
+    :tundra     => [0.58, 0.70],
+    :forest     => [0.505, 0.75],
+
+    :savanna    => [0.52, 0.75],
+    :taiga      => [0.50, 0.62],
+
+    :jungle     => [0.50, 0.86],
+    :rainforest => [0.50, 0.73],
+    :swamp      => [0.50, 1.0],
+  }
   COLORS = {
     :dirt  => {
       :desert     => ChunkyPNG::Color.from_hex('#9c7e3d'),
@@ -79,7 +92,7 @@ class Terrain
       :rainforest => ChunkyPNG::Color.from_hex('#1e3f50'),
       :savanna    => ChunkyPNG::Color.from_hex('#596266'),
       :swamp      => ChunkyPNG::Color.from_hex('#2d4636'),
-      :taiga      => ChunkyPNG::Color.from_hex('#44636f'),
+      :taiga      => ChunkyPNG::Color.from_hex('#3a545f'),
       :tundra     => ChunkyPNG::Color.from_hex('#526b72'),
     },
     :rock => {
@@ -89,8 +102,19 @@ class Terrain
       :jungle     => ChunkyPNG::Color.from_hex('#504430'),
       :rainforest => ChunkyPNG::Color.from_hex('#363230'),
       :savanna    => ChunkyPNG::Color.from_hex('#7e6b44'),
-      :taiga      => ChunkyPNG::Color.from_hex('#504d49'),
+      :taiga      => ChunkyPNG::Color.from_hex('#43403d'),
       :tundra     => ChunkyPNG::Color.from_hex('#5c5a57'),
+    },
+    :veg => {
+      :forest     => ChunkyPNG::Color.from_hex('#304b33d0'),
+      :desert     => ChunkyPNG::Color.from_hex('#796f3ac5'),
+      :grassland  => ChunkyPNG::Color.from_hex('#4f6145d0'),
+      :jungle     => ChunkyPNG::Color.from_hex('#3f4424d0'),
+      :rainforest => ChunkyPNG::Color.from_hex('#253e25d0'),
+      :savanna    => ChunkyPNG::Color.from_hex('#6c6439d0'),
+      :swamp      => ChunkyPNG::Color.from_hex('#343b14d0'),
+      :taiga      => ChunkyPNG::Color.from_hex('#202e1fc0'),
+      :tundra     => ChunkyPNG::Color.from_hex('#525747a0'),
     }
   }
 
@@ -121,6 +145,12 @@ class Terrain
     @noise.gamma_filter(1.2)
     @noise.median_filter(2)
     @noise.normalize
+
+    @veg = FractalNoise::PerlinNoise.new(@size, @size, @random)
+    @veg.generate(3, 0.6)
+    @veg.normalize
+    @veg.gamma_filter(1.2)
+    @veg.median_filter(2)
 
     water = WATER[@type]
     rock  = ROCK[@type]
@@ -226,7 +256,16 @@ class Terrain
         light -= (@options[:continuous_color] ? step : step.to_i)*0.01
       end
 
-      ChunkyPNG::Color.from_hsl(hue, sat, light)
+      if value <= VEG[@type].last && value >= VEG[@type].first
+        h,s,l,a = ChunkyPNG::Color.to_hsl(COLORS[:veg][@type], true)
+          
+        fg = ChunkyPNG::Color.from_hsl(h, s, l-@veg.fractal[x][y]/10, (a - (value+0.5)*128).to_i)
+        bg = ChunkyPNG::Color.from_hsl(hue, sat, light)
+
+        ChunkyPNG::Color.compose_quick(fg, bg)
+      else
+        ChunkyPNG::Color.from_hsl(hue, sat, light)
+      end
     end
   end
 
